@@ -65,7 +65,7 @@ syncoid_mode="strict-mirror"
 # If the destination is unencrypted, the data will be stored unencrypted as well.
 # Selecting "yes" here will force syncoid to ask ZFS for the raw encrypted data stream, allowing for both slightly faster transfers as well as zero-knowledge replication.
 # The destination data will remain encrypted with the original key. Unless the destination also has this key, this preserves data secrecy.
-syncoid_send_encrypted_raw="yes" 
+syncoid_send_encrypted_raw="no" 
 #
 ##########
 #
