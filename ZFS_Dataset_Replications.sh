@@ -78,6 +78,13 @@ rsync_type="incremental" # set to "incremental" for dated incremental backups or
 #
 ####################
 #
+# This function is to log messages to the standard output
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')]" $@ 
+}
+#
+####################
+#
 # This function is to send messages to Unraid gui etc
 #
 unraid_notify() {
@@ -129,21 +136,21 @@ pre_run_checks() {
   # check for essential utilities
   if [ ! -x "$(which zfs)" ]; then
     msg='ZFS utilities are not found. This script is meant for Unraid 6.12 or above (which includes ZFS support). Please ensure you are using the correct Unraid version.'
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
   #
   if [ ! -x /usr/local/sbin/sanoid ]; then
     msg='Sanoid is not found or not executable. Please install Sanoid and try again.'
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
   #
   if [ "$replication" = "zfs" ] && [ ! -x /usr/local/sbin/syncoid ]; then
     msg='Syncoid is not found or not executable. Please install Syncoid plugin and try again.'
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
@@ -151,7 +158,7 @@ pre_run_checks() {
   # check if the dataset and pool exist
   if ! zfs list -H "${source_path}" &>/dev/null; then
     msg="Error: The source dataset '${source_dataset}' does not exist."
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
@@ -159,7 +166,7 @@ pre_run_checks() {
   # check if autosnapshots is set to "yes" and source_dataset has a space in its name
   if [[ "${autosnapshots}" == "yes" && "${source_dataset}" == *" "* ]]; then
     msg="Error: Autosnapshots is enabled and the source dataset name '${source_dataset}' contains spaces. Rename the dataset without spaces and try again. This is because although ZFS does support spaces in dataset names sanoid config file doesnt parse them correctly"
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
@@ -168,13 +175,13 @@ pre_run_checks() {
   used=$(zfs get -H -o value used "${source_path}")
   if [[ ${used} == 0B ]]; then
     msg="The source dataset '${source_path}' is empty. Nothing to replicate."
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
   #
   if [ "$destination_remote" = "yes" ]; then
-    echo "Replication target is a remote server. I will check it is available..."
+    log "Replication target is a remote server. I will check it is available..."
     # Attempt an SSH connection. If it fails, print an error message and exit.
     local -a ssh_flags=("-o" "BatchMode=yes" "-o" "ConnectTimeout=5")
     if [ -n "${remote_port}" ]; then
@@ -182,32 +189,32 @@ pre_run_checks() {
     fi
     if ! ssh "${ssh_flags[@]}" "${remote_user}@${remote_server}" echo 'SSH connection successful' &>/dev/null; then
       msg='SSH connection failed. Please check your remote server details and ensure ssh keys are exchanged.'
-      echo "$msg"
+      log "$msg"
       unraid_notify "$msg" "failure"
       exit 1
     fi
   else
-    echo "Replication target is a local/same server."
+    log "Replication target is a local/same server."
   fi
   #
   # check script configuration variables
   if [ "$replication" != "zfs" ] && [ "$replication" != "rsync" ] && [ "$replication" != "none" ]; then
     msg="$replication is not a valid replication method. Please set it to either 'zfs', 'rsync', or 'none'."
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
 
   if [ "$autosnapshots" != "yes" ] && [ "$autosnapshots" != "no" ]; then
     msg="The 'autosnapshots' variable is not set to a valid value. Please set it to either 'yes' or 'no'."
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
   #
   if [ "$destination_remote" != "yes" ] && [ "$destination_remote" != "no" ]; then
     msg="The 'destination_remote' variable is not set to a valid value. Please set it to either 'yes' or 'no'."
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
@@ -215,7 +222,7 @@ pre_run_checks() {
   if [ "$destination_remote" = "yes" ]; then
     if [ -z "$remote_user" ] || [ -z "$remote_server" ]; then
       msg="The 'remote_user' and 'remote_server' must be set when 'destination_remote' is set to 'yes'."
-      echo "$msg"
+      log "$msg"
       unraid_notify "$msg" "failure"
       exit 1
     fi
@@ -223,7 +230,7 @@ pre_run_checks() {
   #
   if [ "$replication" = "none" ] && [ "$autosnapshots" = "no" ]; then
     msg='Both replication and autosnapshots are set to "none". Please configure them so that the script can perform some work.'
-    echo "$msg"
+    log "$msg"
     unraid_notify "$msg" "failure"
     exit 1
   fi
@@ -231,13 +238,13 @@ pre_run_checks() {
   if [ "$replication" = "rsync" ]; then
     if [ "$rsync_type" != "incremental" ] && [ "$rsync_type" != "mirror" ]; then
       msg='Invalid rsync_type. Please set it to either "incremental" or "mirror".'
-      echo "$msg"
+      log "$msg"
       unraid_notify "$msg" "failure"
       exit 1
     fi
   fi
   # If all checks passed print below
-  echo "All pre-run checks passed. Continuing..."
+  log "All pre-run checks passed. Continuing..."
 }
 #
 ####################
@@ -266,7 +273,7 @@ create_sanoid_config() {
           current_value=$(grep "^$key = " "${sanoid_config_complete_path}sanoid.conf" | awk -F ' = ' '{print $2}')
           if [[ "$current_value" != "$new_value" ]]; then
               sed -i "s/^$key = .*/$key = $new_value/" "${sanoid_config_complete_path}sanoid.conf"
-              echo "[CONFIG CHANGE] Updated '$key' to '$new_value' in '${sanoid_config_complete_path}sanoid.conf'."
+              log "[CONFIG CHANGE] Updated '$key' to '$new_value' in '${sanoid_config_complete_path}sanoid.conf'."
           fi
       }
       update_setting "hourly" "$snapshot_hours"
@@ -278,18 +285,18 @@ create_sanoid_config() {
   fi
 #
 # this  creates the new configuration file based off variables for retention
-  echo "[${source_path}]" > "${sanoid_config_complete_path}sanoid.conf"
-  echo "use_template = production" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "recursive = yes" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "[template_production]" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "hourly = ${snapshot_hours}" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "daily = ${snapshot_days}" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "weekly = ${snapshot_weeks}" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "monthly = ${snapshot_months}" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "yearly = ${snapshot_years}" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "autosnap = yes" >> "${sanoid_config_complete_path}sanoid.conf"
-  echo "autoprune = yes" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "[${source_path}]" > "${sanoid_config_complete_path}sanoid.conf"
+  log "use_template = production" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "recursive = yes" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "[template_production]" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "hourly = ${snapshot_hours}" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "daily = ${snapshot_days}" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "weekly = ${snapshot_weeks}" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "monthly = ${snapshot_months}" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "yearly = ${snapshot_years}" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "autosnap = yes" >> "${sanoid_config_complete_path}sanoid.conf"
+  log "autoprune = yes" >> "${sanoid_config_complete_path}sanoid.conf"
 }
 #
 ####################
@@ -299,7 +306,7 @@ autosnap() {
   # check if autosnapshots is set to "yes" before creating snapshots
   if [[ "${autosnapshots}" == "yes" ]]; then
     # Create the snapshots on the source directory using Sanoid if required
-    echo "creating the automatic snapshots of ${source_path} using sanoid based off retention policy"
+    log "creating the automatic snapshots of ${source_path} using sanoid based off retention policy"
     /usr/local/sbin/sanoid --configdir="${sanoid_config_complete_path}" --take-snapshots
     #
     # check the exit status of the sanoid command 
@@ -311,7 +318,7 @@ autosnap() {
     fi
   #
   else
-    echo "Autosnapshots are not set to 'yes', skipping..."
+    log "Autosnapshots are not set to 'yes', skipping..."
   fi
 }
 #
@@ -321,11 +328,11 @@ autosnap() {
 autoprune() {
   # rheck if autosnapshots is set to "yes" before creating snapshots
   if [[ "${autosnapshots}" == "yes" ]]; then
-   echo "pruning the automatic snapshots of ${source_path} using sanoid based off retention policy"
+   log "pruning the automatic snapshots of ${source_path} using sanoid based off retention policy"
 # run Sanoid to prune snapshots based on retention policy
 /usr/local/sbin/sanoid --configdir="${sanoid_config_complete_path}" --prune-snapshots
   else
-    echo "Autosnapshots are not set to 'yes', skipping..."
+    log "Autosnapshots are not set to 'yes', skipping..."
   fi
 }
 #
@@ -372,7 +379,7 @@ zfs_replication() {
         # No additional flags other than -r
         ;;
       *)
-        echo "Invalid syncoid_mode. Please set it to 'strict-mirror', or 'basic'."
+        log "Invalid syncoid_mode. Please set it to 'strict-mirror', or 'basic'."
         exit 1
         ;;
     esac
@@ -381,7 +388,7 @@ zfs_replication() {
     fi
     #
     # Use syncoid to replicate snapshot to the destination dataset
-    echo "Starting ZFS replication using syncoid with mode: ${syncoid_mode}"
+    log "Starting ZFS replication using syncoid with mode: ${syncoid_mode}"
     /usr/local/sbin/syncoid "${syncoid_flags[@]}" "${source_path}" "${destination}"
     if [ $? -eq 0 ]; then
       if [ "$destination_remote" = "yes" ]; then
@@ -394,7 +401,7 @@ zfs_replication() {
       return 1
     fi
   else
-    echo "ZFS replication not set. Skipping ZFS replication."
+    log "ZFS replication not set. Skipping ZFS replication."
   fi
 }
 #
@@ -410,7 +417,7 @@ get_previous_backup() {
             if [ -n "${remote_port}" ]; then
               ssh_flags+=("-p" "${remote_port}")
             fi
-            echo "Running: ssh ${ssh_flags[@]} ${remote_user}@${remote_server} \"ls ${destination_rsync_location} | sort -r | head -n 2 | tail -n 1\""
+            log "Running: ssh ${ssh_flags[@]} ${remote_user}@${remote_server} \"ls ${destination_rsync_location} | sort -r | head -n 2 | tail -n 1\""
             previous_backup=$(ssh "${ssh_flags[@]}" "${remote_user}@${remote_server}" "ls \"${destination_rsync_location}\" | sort -r | head -n 2 | tail -n 1")
         else
             previous_backup=$(ls "${destination_rsync_location}" | sort -r | head -n 2 | tail -n 1)
@@ -438,9 +445,9 @@ rsync_replication() {
             get_previous_backup
             local link_dest_path="${destination_rsync_location}/${previous_backup}${relative_dataset_path}"
             [ -z "$previous_backup" ] && local link_dest="" || local link_dest="--link-dest=${link_dest_path}"
-            echo "Link dest value is: $link_dest"
+            log "Link dest value is: $link_dest"
             # Log the link_dest value for debugging
-            echo "Link dest value is: $link_dest"
+            log "Link dest value is: $link_dest"
             #
             if [ "$destination_remote" = "yes" ]; then
                 # Create the remote directory 
@@ -451,7 +458,7 @@ rsync_replication() {
                 [ "$rsync_type" = "incremental" ] && ssh "${ssh_flags[@]}" "${remote_user}@${remote_server}" "mkdir -p \"${rsync_destination}\""
                 # Rsync the snapshot to the remote destination with link-dest
                 #rsync -azvvv --delete $link_dest -e ssh "${ssh_flags[@]}" "${snapshot_mount_point}/" "${remote_user}@${remote_server}:${rsync_destination}/"
-                echo "Executing remote rsync: rsync -azvh --delete $link_dest -e ssh \"${ssh_flags[@]}\" \"${snapshot_mount_point}/\" \"${remote_user}@${remote_server}:${rsync_destination}/\""
+                log "Executing remote rsync: rsync -azvh --delete $link_dest -e ssh \"${ssh_flags[@]}\" \"${snapshot_mount_point}/\" \"${remote_user}@${remote_server}:${rsync_destination}/\""
                 rsync -azvh --delete $link_dest -e ssh "${ssh_flags[@]}" "${snapshot_mount_point}/" "${remote_user}@${remote_server}:${rsync_destination}/"
 
                 if [ $? -ne 0 ]; then
@@ -463,7 +470,7 @@ rsync_replication() {
                 [ "$rsync_type" = "incremental" ] && mkdir -p "${rsync_destination}"
                 # Rsync the snapshot to the local destination with link-dest
               #  rsync -avv --delete $link_dest "${snapshot_mount_point}/" "${rsync_destination}/"
-              echo "Executing local rsync: rsync -avh --delete $link_dest \"${snapshot_mount_point}/\" \"${rsync_destination}/\""
+              log "Executing local rsync: rsync -avh --delete $link_dest \"${snapshot_mount_point}/\" \"${rsync_destination}/\""
 rsync -avh --delete $link_dest "${snapshot_mount_point}/" "${rsync_destination}/"
 
                 if [ $? -ne 0 ]; then
@@ -473,7 +480,7 @@ rsync -avh --delete $link_dest "${snapshot_mount_point}/" "${rsync_destination}/
             fi
         }
         #
-        echo "making a temporary zfs snapshot for rsync"
+        log "making a temporary zfs snapshot for rsync"
         zfs snapshot "${source_path}@${snapshot_name}"
         if [ $? -ne 0 ]; then
             unraid_notify "Failed to create ZFS snapshot for rsync: ${source_path}@${snapshot_name}" "failure"
@@ -483,7 +490,7 @@ rsync -avh --delete $link_dest "${snapshot_mount_point}/" "${rsync_destination}/
         local snapshot_mount_point="/mnt/${source_path}/.zfs/snapshot/${snapshot_name}"
         do_rsync "${snapshot_mount_point}" "${destination}" ""
         #
-        echo "deleting temporary snapshot"
+        log "deleting temporary snapshot"
         zfs destroy "${source_path}@${snapshot_name}"
         if [ $? -ne 0 ]; then
             unraid_notify "Failed to delete ZFS snapshot after rsync: ${source_path}@${snapshot_name}" "failure"
@@ -495,7 +502,7 @@ rsync -avh --delete $link_dest "${snapshot_mount_point}/" "${rsync_destination}/
         #
         for child_dataset in ${child_datasets}; do
             local relative_path=$(echo "${child_dataset}" | sed "s|^${source_path}/||g")
-            echo "making a temporary zfs snapshot (child) for rsync"
+            log "making a temporary zfs snapshot (child) for rsync"
             zfs snapshot "${child_dataset}@${snapshot_name}"
             snapshot_mount_point="/mnt/${child_dataset}/.zfs/snapshot/${snapshot_name}"
             child_destination="${destination}/${relative_path}"
@@ -549,12 +556,12 @@ run_for_each_dataset() {
           # Add dataset to the list if not excluded
           selected_source_datasets+=("$line")
         else
-          echo "Exclude dataset $dataset_name"
+          log "Exclude dataset $dataset_name"
         fi
         done < <(zfs list -r -o name -H $source_pool | awk -F'/' -v pool="$source_pool" '($0 ~ pool && NF==2) {print $2}')
     else
       # Exclude datasets starting with the specified prefix
-      echo "Skipping datasets with names starting with {$source_dataset_auto_select_exclude_prefix}"
+      log "Skipping datasets with names starting with {$source_dataset_auto_select_exclude_prefix}"
       while IFS= read -r line; do
         # Extract dataset name
         dataset_name=$(echo "$line" | awk -F'/' '{print $NF}')
@@ -562,36 +569,36 @@ run_for_each_dataset() {
           # Add dataset to the list if not excluded
           selected_source_datasets+=("$line")
       else
-        echo "Exclude dataset $dataset_name"
+        log "Exclude dataset $dataset_name"
       fi
       done < <(zfs list -r -o name -H $source_pool | awk -F'/' -v pool="$source_pool" -v prefix="$source_dataset_auto_select_exclude_prefix" '($0 ~ pool && NF==2 && $2 !~ ("^" prefix)) {print $2}')
     fi
   fi
-  echo "Selected datasets:"
-  printf '%s\n' "${selected_source_datasets[@]}"
+  log "\tSelected datasets:"
+  printf '\t\t%s\n' "${selected_source_datasets[@]}"
 
   # Perform pre-run checks, create sanoid configs, snapshot, prune, and replicate for each selected dataset.
   for source_dataset_name in "${selected_source_datasets[@]}"; do
     update_paths $source_dataset_name
-    echo "Performing pre-run checks for $source_dataset_name"
+    log "Performing pre-run checks for $source_dataset_name"
     pre_run_checks
-    echo "Creating sanoid config for $source_dataset_name"
+    log "Creating sanoid config for $source_dataset_name"
     create_sanoid_config
   done
 
   for source_dataset_name in "${selected_source_datasets[@]}"; do
     update_paths $source_dataset_name
-    echo "Performing autosnapshot for $source_dataset_name"
+    log "Performing autosnapshot for $source_dataset_name"
     autosnap
   done
 
   for source_dataset_name in "${selected_source_datasets[@]}"; do
     update_paths $source_dataset_name
-    echo "Performing autoprune for $source_dataset_name"
+    log "Performing autoprune for $source_dataset_name"
     autoprune
-    echo "Performing rsync replication for $source_dataset_name"
+    log "Performing rsync replication for $source_dataset_name"
     rsync_replication
-    echo "Performing ZFS replication for $source_dataset_name"
+    log "Performing ZFS replication for $source_dataset_name"
     zfs_replication
   done
 }
