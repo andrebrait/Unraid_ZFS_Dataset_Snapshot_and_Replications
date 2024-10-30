@@ -285,18 +285,18 @@ create_sanoid_config() {
   fi
 #
 # this  creates the new configuration file based off variables for retention
-  log "[${source_path}]" > "${sanoid_config_complete_path}sanoid.conf"
-  log "use_template = production" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "recursive = yes" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "[template_production]" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "hourly = ${snapshot_hours}" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "daily = ${snapshot_days}" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "weekly = ${snapshot_weeks}" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "monthly = ${snapshot_months}" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "yearly = ${snapshot_years}" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "autosnap = yes" >> "${sanoid_config_complete_path}sanoid.conf"
-  log "autoprune = yes" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "[${source_path}]" > "${sanoid_config_complete_path}sanoid.conf"
+  echo "use_template = production" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "recursive = yes" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "[template_production]" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "hourly = ${snapshot_hours}" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "daily = ${snapshot_days}" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "weekly = ${snapshot_weeks}" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "monthly = ${snapshot_months}" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "yearly = ${snapshot_years}" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "autosnap = yes" >> "${sanoid_config_complete_path}sanoid.conf"
+  echo "autoprune = yes" >> "${sanoid_config_complete_path}sanoid.conf"
 }
 #
 ####################
