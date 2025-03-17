@@ -80,7 +80,7 @@ rsync_type="incremental" # set to "incremental" for dated incremental backups or
 #
 # This function is to log messages to the standard output
 log() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')]" $@ 
+  echo -e "[$(date '+%Y-%m-%d %H:%M:%S')]" $@ 
 }
 #
 ####################
